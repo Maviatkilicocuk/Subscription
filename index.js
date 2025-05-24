@@ -134,21 +134,17 @@ const typeDefs = `
   }
 
   type Subscription {
-    count: Int!
+    userCreated: User!
   }
 `;
 
+const pubsub = new PubSub();
+const USER_CREATED = "USER_CREATED";
+
 const resolvers = {
   Subscription: {
-    count: {
-      subscribe: async function* (_, __, { pubsub }) {
-        let count = 0;
-        while (true) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          count++;
-          yield { count };
-        }
-      },
+    userCreated: {
+      subscribe: () => pubsub.asyncIterator([USER_CREATED]),
     },
   },
   Query: {
@@ -169,6 +165,7 @@ const resolvers = {
     addUser: (_, { data }) => {
       const newUser = { id: uuidv4(), ...data };
       userList.push(newUser);
+      pubsub.publish(USER_CREATED, { userCreated: newUser });
       return newUser;
     },
     updateUser: (_, { id, data }) => {
@@ -280,8 +277,6 @@ const resolvers = {
     event: (parent) => eventList.find((e) => e.id === parent.event_id),
   },
 };
-
-const pubsub = new PubSub();
 
 const schema = makeExecutableSchema({
   typeDefs,

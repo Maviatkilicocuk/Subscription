@@ -134,19 +134,72 @@ const typeDefs = `
   }
 
   type Subscription {
+    #User
     userCreated: User!
+    userUpdated: User!
+    userDeleted: User!
+
+    #Event
+    eventCreated: Event!
+    eventUpdated: Event!
+    eventDeleted: Event!
+
+    #Participant
+    participantCreated: Participant!
+    participantUpdated: Participant!
+    participantDeleted: Participant!
   }
 `;
 
 const pubsub = new PubSub();
 const USER_CREATED = "USER_CREATED";
+const USER_UPDATED = "USER_UPDATED";
+const USER_DELETED = "USER_DELETED";
+
+const EVENT_CREATED = "EVENT_CREATED";
+const EVENT_UPDATED = "EVENT_UPDATED";
+const EVENT_DELETED = "EVENT_DELETED";
+
+const PARTICIPANT_CREATED = "PARTICIPANT_CREATED";
+const PARTICIPANT_UPDATED = "PARTICIPANT_UPDATED";
+const PARTICIPANT_DELETED = "PARTICIPANT_DELETED";
 
 const resolvers = {
   Subscription: {
+    //USER
     userCreated: {
       subscribe: () => pubsub.asyncIterator([USER_CREATED]),
     },
+    userUpdated: {
+      subscribe: () => pubsub.asyncIterator([USER_UPDATED]),
+    },
+    userDeleted: {
+      subscribe: () => pubsub.asyncIterator([USER_DELETED]),
+    },
+
+    //Event
+    eventCreated: {
+      subscribe: () => pubsub.asyncIterator([EVENT_CREATED]),
+    },
+    eventUpdated: {
+      subscribe: () => pubsub.asyncIterator([EVENT_UPDATED]),
+    },
+    eventDeleted: {
+      subscribe: () => pubsub.asyncIterator([EVENT_DELETED]),
+    },
+
+    //Participant
+    participantCreated: {
+      subscribe: () => pubsub.asyncIterator([PARTICIPANT_CREATED]),
+    },
+    participantUpdated: {
+      subscribe: () => pubsub.asyncIterator([PARTICIPANT_UPDATED]),
+    },
+    participantDeleted: {
+      subscribe: () => pubsub.asyncIterator([PARTICIPANT_DELETED]),
+    },
   },
+
   Query: {
     users: () => userList,
     user: (_, { id }) => userList.find((u) => u.id === id),
@@ -169,45 +222,56 @@ const resolvers = {
       return newUser;
     },
     updateUser: (_, { id, data }) => {
-      const idx = userList.findIndex((u) => u.id === id);
+      const idx = userList.findIndex((u) => String(u.id) === String(id));
       if (idx === -1) throw new Error("User not found");
       userList[idx] = { ...userList[idx], ...data };
+      pubsub.publish(USER_UPDATED, { userUpdated: userList[idx] });
       return userList[idx];
     },
     deleteUser: (_, { id }) => {
-      const idx = userList.findIndex((u) => u.id === id);
+      const idx = userList.findIndex((u) => String(u.id) === String(id));
       if (idx === -1) throw new Error("User not found");
       const deleted = userList[idx];
       userList.splice(idx, 1);
+      pubsub.publish(USER_DELETED, { userDeleted: deleted });
       return deleted;
     },
     deleteAllUsers: () => {
-      const deleted = [...userList];
-      userList = [];
-      return deleted;
+const deleted = [...userList];
+userList = [];
+deleted.forEach(user => {
+  pubsub.publish(USER_DELETED, { userDeleted: user });
+});
+return deleted;
     },
 
     addEvent: (_, { data }) => {
       const newEvent = { id: uuidv4(), ...data };
       eventList.push(newEvent);
+      pubsub.publish(EVENT_CREATED, { eventCreated: newEvent });
       return newEvent;
     },
     updateEvent: (_, { id, data }) => {
       const idx = eventList.findIndex((e) => e.id === id);
       if (idx === -1) throw new Error("Event not found");
       eventList[idx] = { ...eventList[idx], ...data };
+      pubsub.publish(EVENT_UPDATED, { eventUpdated: eventList[idx] });
       return eventList[idx];
     },
     deleteEvent: (_, { id }) => {
-      const idx = eventList.findIndex((e) => e.id === id);
+      const idx = eventList.findIndex((u) => String(u.id) === String(id));
       if (idx === -1) throw new Error("Event not found");
       const deleted = eventList[idx];
       eventList.splice(idx, 1);
+      pubsub.publish(EVENT_DELETED, { eventDeleted: deleted });
       return deleted;
     },
     deleteAllEvents: () => {
       const deleted = [...eventList];
       eventList = [];
+      eventList.forEach(event => {
+  pubsub.publish(EVENT_DELETED, { eventDeleted: event });
+});
       return deleted;
     },
 
@@ -232,34 +296,40 @@ const resolvers = {
     deleteAllLocations: () => {
       const deleted = [...locationList];
       locationList = [];
+      
       return deleted;
     },
 
     addParticipant: (_, { data }) => {
       const newPart = { id: uuidv4(), ...data };
       participantList.push(newPart);
+      pubsub.publish(PARTICIPANT_CREATED, { participantCreated: newPart });
       return newPart;
     },
     updateParticipant: (_, { id, data }) => {
-      const idx = participantList.findIndex((p) => p.id === id);
+      const idx = participantList.findIndex((p) => String(p.id) === numericId);
       if (idx === -1) throw new Error("Participant not found");
       participantList[idx] = { ...participantList[idx], ...data };
+      pubsub.publish(PARTICIPANT_UPDATED, { participantUpdated: participantList[idx] });
       return participantList[idx];
     },
     deleteParticipant: (_, { id }) => {
-      const idx = participantList.findIndex((p) => p.id === id);
+      const idx = participantList.findIndex((p) => p.id === String(id));
       if (idx === -1) throw new Error("Participant not found");
       const deleted = participantList[idx];
       participantList.splice(idx, 1);
+      pubsub.publish(PARTICIPANT_DELETED, { participantDeleted: deleted });
       return deleted;
     },
-    deleteAllParticipants: () => {
-      const deleted = [...participantList];
-      participantList = [];
-      return deleted;
-    },
+deleteAllParticipants: () => {
+  const deleted = [...participantList];
+  participantList = [];
+  deleted.forEach(participant => {
+    pubsub.publish(PARTICIPANT_DELETED, { participantDeleted: participant });
+  });
+  return deleted;
+},
   },
-
   User: {
     events: (parent) => eventList.filter((e) => e.user_id === parent.id),
   },
